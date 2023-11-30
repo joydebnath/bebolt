@@ -1,0 +1,64 @@
+version: "3.8"
+services:
+  api:
+    build:
+      context: .
+      # Correct the path to your Dockerfile
+      dockerfile: Dockerfile
+    ports:
+      - '${FORWARD_APP_PORT:-6900}:${APP_PORT:-6900}'
+    # Important to bind/mount your codebase dir to /app dir for live reload
+    volumes:
+      - ./:/app
+    networks:
+      - usego-api
+    depends_on:
+      - mariadb
+      - redis
+
+  mariadb:
+      image: 'mariadb:10'
+      ports:
+          - '${FORWARD_DB_PORT:-3306}:3306'
+      environment:
+          MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
+          MYSQL_ROOT_HOST: '%'
+          MYSQL_DATABASE: '${DB_DATABASE}'
+          MYSQL_USER: '${DB_USERNAME}'
+          MYSQL_PASSWORD: '${DB_PASSWORD}'
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+      volumes:
+          - 'usego-api-mariadb:/var/lib/mysql'
+      networks:
+          - usego-api
+      healthcheck:
+          test:
+              - CMD
+              - mysqladmin
+              - ping
+              - '-p${DB_PASSWORD}'
+          retries: 3
+          timeout: 5s
+  redis:
+      image: 'redis:alpine'
+      ports:
+          - '${FORWARD_REDIS_PORT:-6379}:6379'
+      volumes:
+          - 'usego-api-redis:/data'
+      networks:
+          - usego-api
+      healthcheck:
+          test:
+              - CMD
+              - redis-cli
+              - ping
+          retries: 3
+          timeout: 5s
+networks:
+    usego-api:
+        driver: bridge
+volumes:
+    usego-api-mariadb:
+        driver: local
+    usego-api-redis:
+        driver: local
